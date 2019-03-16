@@ -11,9 +11,11 @@ using System.Windows.Input;
 namespace overwolf.plugins {
   public class SimpleIOPlugin : IDisposable {
     IntPtr _window = IntPtr.Zero;
+    string _appName = null;
 
     public SimpleIOPlugin(int window) {
       _window = new IntPtr(window); ;
+      _appName = appName;
     }
 
     public SimpleIOPlugin() {
@@ -173,6 +175,9 @@ namespace overwolf.plugins {
         Task.Run(() => {
           string filePath = "";
           try {
+            
+            // Add appName as required to not accidently put files into LOCAL appdata
+            path = "/" + _appName + path;
             path = path.Replace('/', '\\');
             if (path.StartsWith("\\")) {
               path = path.Remove(0, 1);
@@ -198,6 +203,51 @@ namespace overwolf.plugins {
       } catch (Exception ex) {
         callback(false, string.Format("error: ", ex.ToString()));
       }
+    }
+    
+    public void removeLocalAppDataFile(string path, Action<object, object> callback)
+    {
+        if (callback == null)
+            return;
+
+        try
+        {
+            Task.Run(() => {
+                string filePath = "";
+                try
+                {
+                    // Add appName as required to not accidently put files into LOCAL appdata
+                    path = "/" + _appName + path;
+                    path = path.Replace('/', '\\');
+                    if (path.StartsWith("\\"))
+                    {
+                        path = path.Remove(0, 1);
+                    }
+                    filePath = Path.Combine(LOCALAPPDATA, path);
+
+                    // make sure the folder exists, prior to deleting the file
+                    FileInfo fileInfo = new FileInfo(filePath);
+                    if (!fileInfo.Exists)
+                    {
+                        callback(true, "The file does not exist. Did you type the correct name?");
+                    } else
+                    {
+                        fileInfo.Delete();
+                    }
+
+                    callback(true, "");
+                }
+                catch (Exception ex)
+                {
+                    callback(false, string.Format("unexpected error when trying to delete '{0}' : {1}",
+                        filePath, ex.ToString()));
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            callback(false, string.Format("error: ", ex.ToString()));
+        }
     }
 
     public void getLatestFileInDirectory(string path, Action<object, object> callback) {
